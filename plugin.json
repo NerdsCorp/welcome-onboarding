@@ -2,7 +2,7 @@
   "id": "welcome-onboarding",
   "name": "Welcome Onboarding",
   "author": "Kristopher Reeves (Dr.Reeves)",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Custom account-created onboarding emails with editable welcome text, setup links, community links, and first-login instructions.",
   "category": "plugin",
   "api_version": 1,
