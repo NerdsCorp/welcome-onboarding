@@ -2,14 +2,15 @@
 
 namespace WelcomeOnboarding\Support;
 
+use App\Traits\EnvironmentWriterTrait;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use JsonException;
 
 class SettingsRepository
 {
-    private const SETTING_KEY = 'settings::plugins:welcome-onboarding';
+    use EnvironmentWriterTrait;
+
+    private const ENV_KEY = 'WELCOME_ONBOARDING_SETTINGS';
 
     /**
      * @return array<string, mixed>
@@ -28,15 +29,10 @@ class SettingsRepository
     public function save(array $data): void
     {
         $settings = $this->normalize($data);
+        $encoded = json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-        DB::table('settings')->updateOrInsert(
-            ['key' => self::SETTING_KEY],
-            ['value' => json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)]
-        );
-
-        if (File::exists($this->path())) {
-            File::delete($this->path());
-        }
+        $this->writeToEnvironment([self::ENV_KEY => $encoded]);
+        config(['welcome-onboarding.stored' => $settings]);
     }
 
     /**
@@ -110,61 +106,22 @@ class SettingsRepository
      */
     private function getStoredSettings(): array
     {
-        $stored = $this->getStoredSettingsFromDatabase();
-        if ($stored !== []) {
+        $stored = config('welcome-onboarding.stored');
+        if (is_array($stored)) {
             return $stored;
         }
 
-        $stored = $this->getStoredSettingsFromFile();
-        if ($stored !== []) {
-            $this->save($stored);
-        }
-
-        return $stored;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function getStoredSettingsFromDatabase(): array
-    {
-        $value = DB::table('settings')
-            ->where('key', self::SETTING_KEY)
-            ->value('value');
-
+        $value = env(self::ENV_KEY, '');
         if (!is_string($value) || $value === '') {
             return [];
         }
 
         try {
-            $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
-
-            return is_array($decoded) ? $decoded : [];
-        } catch (JsonException) {
-            return [];
-        }
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function getStoredSettingsFromFile(): array
-    {
-        if (!File::exists($this->path())) {
-            return [];
-        }
-
-        try {
-            $stored = File::json($this->path(), JSON_THROW_ON_ERROR);
+            $stored = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
 
             return is_array($stored) ? $stored : [];
         } catch (JsonException) {
             return [];
         }
-    }
-
-    private function path(): string
-    {
-        return plugin_path('welcome-onboarding', 'storage', 'settings.json');
     }
 }
